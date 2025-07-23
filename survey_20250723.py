@@ -8,37 +8,64 @@ from datetime import datetime
 import zipfile
 import io
 
-st.set_page_config(layout="wide")
+st.set_page_config(layout="centered")
 st.title("🚲 Bicycle OD Route Survey")
 
-# ---- Split layout in two columns ----
-col1, col2 = st.columns([1, 2])
+# ========== FORM ==========
+with st.form("survey_form"):
+    st.subheader("🧑 Demographics")
+    gender = st.radio("Gender", ["M", "F", "LGBTQ+"])
+    age = st.number_input("Age", min_value=10, max_value=100)
+    income = st.selectbox("Income Range", ["A: <10,000", "B: 10,001–30,000", "C: 30,001–50,000", "D: >50,000"])
+    home_location = st.text_input("Home Location")
 
-with col1:
-    with st.form("survey_form"):
-        st.subheader("🧑 Demographics")
-        gender = st.radio("Gender", ["M", "F", "LGBTQ+"])
-        age = st.number_input("Age", min_value=10, max_value=100)
-        income = st.selectbox("Income Range", ["A: <10,000", "B: 10,001–30,000", "C: 30,001–50,000", "D: >50,000"])
-        home_location = st.text_input("Home Location")
+    st.subheader("🚲 Recent Trip")
+    trip_type = st.selectbox("Trip Type", ["Work", "Recreation", "School", "Errand"])
+    trip_month = st.selectbox("Month", ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                                        "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"])
+    trip_frequency = st.text_input("Trip Frequency (e.g., 3x/week)")
 
-        st.subheader("🚲 Recent Trip")
-        trip_type = st.selectbox("Trip Type", ["Work", "Recreation", "School", "Errand"])
-        trip_month = st.selectbox("Month", ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
-                                            "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"])
-        trip_frequency = st.text_input("Trip Frequency (e.g., 3x/week)")
+    submit = st.form_submit_button("✅ Generate and Download All")
 
-        submit = st.form_submit_button("✅ Generate and Download All")
+# ========== MAP ==========
+st.subheader("🗺️ Draw your route below:")
 
-with col2:
-    st.subheader("🗺️ Draw your route:")
-    m = folium.Map(location=[13.7563, 100.5018], zoom_start=12)
-    Draw(export=True).add_to(m)
-    st_map = st_folium(m, width=700, height=500, returned_objects=["last_active_drawing"])
+# Setup base map
+start_coords = [13.730275905118468, 100.56987498465178]
+m = folium.Map(
+    location=start_coords,
+    zoom_start=16,
+    tiles="CartoDB positron",  # black-and-white basemap
+    control_scale=True
+)
 
-    map_container = st.container()
+# Add circle for radius
+folium.Circle(
+    radius=300,
+    location=start_coords,
+    color="#666",
+    fill=False
+).add_to(m)
 
-# ⬇ Handle Submit Outside Columns to Avoid Stretch
+# Add red draw tool
+draw_options = {
+    "polyline": {
+        "shapeOptions": {
+            "color": "red",
+            "weight": 4,
+            "opacity": 0.9
+        }
+    },
+    "polygon": False,
+    "rectangle": False,
+    "circle": False,
+    "marker": False,
+    "circlemarker": False
+}
+Draw(export=True, draw_options=draw_options).add_to(m)
+st_map = st_folium(m, width=700, height=500, returned_objects=["last_active_drawing"])
+
+# ========== HANDLE SUBMIT ==========
 if submit:
     if st_map and st_map["last_active_drawing"]:
         timestamp = datetime.now()
@@ -81,8 +108,9 @@ if submit:
             zf.writestr(f"{survey_id}.geojson", geojson_bytes)
         zip_buffer.seek(0)
 
-        # 🟢 Now use the map_container to render message and button in same visual space
-        with map_container:
+        # DOWNLOAD
+        col1, col2 = st.columns([1, 6])
+        with col2:
             st.success("✅ Your files are ready:")
             st.download_button(
                 label="📦 Download All (CSV + GeoJSON)",
