@@ -8,39 +8,52 @@ from datetime import datetime
 import zipfile
 import io
 
+# Streamlit config
 st.set_page_config(layout="centered")
 st.title("🚲 Bicycle OD Route Survey")
 
-# ---- FORM + MAP TOGETHER ----
-with st.form("survey_form"):
+# 🔒 CSS to reduce space below map iframe
+st.markdown("""
+    <style>
+    iframe {
+        margin-bottom: -50px;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+# ---------- FORM + MAP ----------
+with st.form("survey_form", clear_on_submit=False):
+    # --- Form: Demographics ---
     st.subheader("🧑 Demographics")
     gender = st.radio("Gender", ["M", "F", "LGBTQ+"])
     age = st.number_input("Age", min_value=10, max_value=100)
     income = st.selectbox("Income Range", ["A: <10,000", "B: 10,001–30,000", "C: 30,001–50,000", "D: >50,000"])
     home_location = st.text_input("Home Location")
 
+    # --- Form: Trip Info ---
     st.subheader("🚲 Recent Trip")
     trip_type = st.selectbox("Trip Type", ["Work", "Recreation", "School", "Errand"])
     trip_month = st.selectbox("Month", ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
                                         "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"])
     trip_frequency = st.text_input("Trip Frequency (e.g., 3x/week)")
 
+    # --- Map Drawing ---
     st.subheader("🗺️ Draw your route below:")
     m = folium.Map(location=[13.7563, 100.5018], zoom_start=12)
     Draw(export=True).add_to(m)
     st_map = st_folium(m, width=700, height=500, returned_objects=["last_active_drawing"])
 
-    # Single Submit Button Below Form + Map
+    # --- Button under map ---
     generate = st.form_submit_button("✅ Generate and Download All")
 
-# ---- PROCESS AND DOWNLOAD ZIP ----
+# ---------- Processing ZIP File ----------
 if generate:
     if st_map and st_map["last_active_drawing"]:
-        # Generate Survey ID
+        # Generate unique survey ID
         timestamp = datetime.now()
         survey_id = timestamp.strftime("%y%m%d_%H%M_SurveyNo_01")
 
-        # CSV data
+        # Build CSV data
         csv_data = {
             "survey_id": survey_id,
             "timestamp": timestamp.isoformat(),
@@ -55,7 +68,7 @@ if generate:
         csv_df = pd.DataFrame([csv_data])
         csv_bytes = csv_df.to_csv(index=False).encode("utf-8")
 
-        # GeoJSON data
+        # Build GeoJSON data
         route_geometry = st_map["last_active_drawing"]["geometry"]
         geojson_obj = {
             "type": "FeatureCollection",
@@ -70,14 +83,14 @@ if generate:
         }
         geojson_bytes = json.dumps(geojson_obj, indent=2).encode("utf-8")
 
-        # Create ZIP
+        # Create in-memory ZIP
         zip_buffer = io.BytesIO()
         with zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED) as zf:
             zf.writestr(f"{survey_id}.csv", csv_bytes)
             zf.writestr(f"{survey_id}.geojson", geojson_bytes)
         zip_buffer.seek(0)
 
-        # Show Download
+        # Final download button
         st.success("✅ Your files are ready.")
         st.download_button(
             label="📦 Download All (CSV + GeoJSON)",
@@ -86,4 +99,4 @@ if generate:
             mime="application/zip"
         )
     else:
-        st.error("⚠️ Please draw your route before submitting.")
+        st.error("⚠️ Please draw your route on the map before submitting.")
