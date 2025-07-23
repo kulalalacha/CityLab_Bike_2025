@@ -11,56 +11,51 @@ import io
 st.set_page_config(layout="centered")
 st.title("🚲 Bicycle OD Route Survey")
 
-# ---------- FORM ----------
-with st.form("survey_form"):
+# ========== FORM, MAP, BUTTON inside ONE FORM ==========
+with st.form("od_form", clear_on_submit=False):
+    # Demographics
     st.subheader("🧑 Demographics")
     gender = st.radio("Gender", ["M", "F", "LGBTQ+"])
     age = st.number_input("Age", min_value=10, max_value=100)
     income = st.selectbox("Income Range", ["A: <10,000", "B: 10,001–30,000", "C: 30,001–50,000", "D: >50,000"])
     home_location = st.text_input("Home Location")
 
+    # Trip Info
     st.subheader("🚲 Recent Trip")
     trip_type = st.selectbox("Trip Type", ["Work", "Recreation", "School", "Errand"])
     trip_month = st.selectbox("Month", ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
                                         "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"])
     trip_frequency = st.text_input("Trip Frequency (e.g., 3x/week)")
 
+    # Map
+    st.subheader("🗺️ Draw your route below:")
+    lat, lon = 13.730275905118468, 100.56987498465178
+    offset_deg = 0.0025
+    sw = [lat - offset_deg, lon - offset_deg]
+    ne = [lat + offset_deg, lon + offset_deg]
+
+    m = folium.Map(tiles="CartoDB positron", control_scale=True)
+    m.fit_bounds([sw, ne])
+    Draw(
+        export=True,
+        draw_options={
+            "polyline": {
+                "shapeOptions": {"color": "red", "weight": 4, "opacity": 0.9}
+            },
+            "polygon": False,
+            "rectangle": False,
+            "circle": False,
+            "marker": False,
+            "circlemarker": False
+        }
+    ).add_to(m)
+
+    st_map = st_folium(m, width=700, height=500, returned_objects=["last_active_drawing"])
+
+    # Button — still inside the form
     submit = st.form_submit_button("✅ Generate and Download All")
 
-# ---------- MAP ----------
-st.subheader("🗺️ Draw your route below:")
-
-# Center coordinate
-lat, lon = 13.730275905118468, 100.56987498465178
-offset_deg = 0.01  # ~278 meters
-
-# Bounds for ~500m square
-sw = [lat - offset_deg, lon - offset_deg]  # Southwest corner
-ne = [lat + offset_deg, lon + offset_deg]  # Northeast corner
-
-# Initialize map
-m = folium.Map(tiles="CartoDB positron", control_scale=True)
-m.fit_bounds([sw, ne])  # Zoom to 500m extent
-
-# Red drawing tool only
-draw_options = {
-    "polyline": {
-        "shapeOptions": {
-            "color": "red",
-            "weight": 4,
-            "opacity": 0.9
-        }
-    },
-    "polygon": False,
-    "rectangle": False,
-    "circle": False,
-    "marker": False,
-    "circlemarker": False
-}
-Draw(export=True, draw_options=draw_options).add_to(m)
-st_map = st_folium(m, width=700, height=500, returned_objects=["last_active_drawing"])
-
-# ---------- SUBMIT HANDLER ----------
+# ========== Handle Submission AFTER form ==========
 if submit:
     if st_map and st_map["last_active_drawing"]:
         timestamp = datetime.now()
@@ -103,7 +98,6 @@ if submit:
             zf.writestr(f"{survey_id}.geojson", geojson_bytes)
         zip_buffer.seek(0)
 
-        # 📦 Download
         st.success("✅ Your files are ready:")
         st.download_button(
             label="📦 Download All (CSV + GeoJSON)",
