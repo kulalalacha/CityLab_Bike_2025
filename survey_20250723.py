@@ -82,17 +82,28 @@ if submit:
 
         # GeoJSON
         route_geometry = st_map["last_active_drawing"]["geometry"]
-        geojson_obj = {
-            "type": "FeatureCollection",
-            "features": [{
-                "type": "Feature",
-                "geometry": route_geometry,
-                "properties": {
-                    "survey_id": survey_id,
-                    "timestamp": timestamp.isoformat()
-                }
-            }]
+        coords = route_geometry["coordinates"]
+        features = []
+
+        for i, coord in enumerate(coords):
+        features.append({
+            "type": "Feature",
+            "geometry": {
+                "type": "Point",
+                "coordinates": coord
+        },
+        "properties": {
+            "survey_id": survey_id,
+            "step": i + 1,
+            "timestamp": timestamp.isoformat()
         }
+    })
+
+geojson_obj = {
+    "type": "FeatureCollection",
+    "features": features
+}
+
         geojson_bytes = json.dumps(geojson_obj, indent=2).encode("utf-8")
 
         # ZIP
