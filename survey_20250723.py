@@ -32,7 +32,7 @@ st.subheader("🗺️ Draw your route below:")
 
 # Center coordinate
 lat, lon = 13.730275905118468, 100.56987498465178
-offset_deg = 0.0025  # ~278 meters
+offset_deg = 0.01  # ~278 meters
 
 # Bounds for ~500m square
 sw = [lat - offset_deg, lon - offset_deg]  # Southwest corner
