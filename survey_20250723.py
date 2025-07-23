@@ -6,6 +6,8 @@ import pandas as pd
 import json
 from datetime import datetime
 import os
+import zipfile
+import io
 
 st.set_page_config(layout="wide")
 st.title("🚲 Bicycle OD Route Survey")
@@ -70,13 +72,24 @@ if submit:
         geojson_bytes = json.dumps(geojson_obj, indent=2).encode("utf-8")
 
         # --- Combined Download Button ---
+                # --- Combined ZIP Download Button ---
         st.success("✅ Files ready for download")
 
-        col1, col2 = st.columns(2)
-        with col1:
-            st.download_button("📥 Download CSV", csv_bytes, file_name=f"{survey_id}.csv", mime="text/csv")
-        with col2:
-            st.download_button("🌍 Download GeoJSON", geojson_bytes, file_name=f"{survey_id}.geojson", mime="application/geo+json")
+        # Create in-memory ZIP file
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED) as zf:
+            zf.writestr(f"{survey_id}.csv", csv_bytes)
+            zf.writestr(f"{survey_id}.geojson", geojson_bytes)
+        zip_buffer.seek(0)
+
+        # One download button for all
+        st.download_button(
+            label="📦 Download All (CSV + GeoJSON)",
+            data=zip_buffer,
+            file_name=f"{survey_id}_files.zip",
+            mime="application/zip"
+        )
+
 
     else:
         st.error("⚠️ Please draw a route on the map before submitting.")
