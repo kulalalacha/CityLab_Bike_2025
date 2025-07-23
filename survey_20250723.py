@@ -10,42 +10,37 @@ import os
 st.set_page_config(layout="wide")
 st.title("🚲 Bicycle OD Route Survey")
 
-# ----- Create Map -----
+# --- Map Drawing ---
 m = folium.Map(location=[13.7563, 100.5018], zoom_start=12)
-Draw(export=True, filename='drawn_route.geojson').add_to(m)
-st.subheader("🗺️ Draw your recent trip on the map below:")
+Draw(export=True).add_to(m)
+st.subheader("🗺️ Draw your route below:")
 st_map = st_folium(m, width=700, height=500, returned_objects=["last_active_drawing"])
 
-# ----- Survey Form -----
-with st.form("survey_form"):
-    st.subheader("🧑 Demographic Info")
+# --- Form Input ---
+with st.form("od_form"):
+    st.subheader("🧑 Demographics")
     gender = st.radio("Gender", ["M", "F", "LGBTQ+"])
     age = st.number_input("Age", min_value=10, max_value=100)
     income = st.selectbox("Income Range", ["A: <10,000", "B: 10,001–30,000", "C: 30,001–50,000", "D: >50,000"])
     home_location = st.text_input("Home Location")
 
-    st.subheader("🛣️ Recent Bicycle Trip")
+    st.subheader("🚲 Recent Trip")
     trip_type = st.selectbox("Trip Type", ["Work", "Recreation", "School", "Errand"])
-    trip_month = st.selectbox("Trip Month", ["Jan", "Feb", "Mar", "Apr", "May", "Jun", 
-                                             "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"])
+    trip_month = st.selectbox("Month", ["Jan", "Feb", "Mar", "Apr", "May", "Jun", 
+                                        "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"])
     trip_frequency = st.text_input("Trip Frequency (e.g., 3x/week)")
 
-    submit = st.form_submit_button("Submit")
+    submit = st.form_submit_button("✅ Generate and Download")
 
-# ----- Generate Unique Survey ID -----
-def generate_survey_id(survey_no):
-    now = datetime.now()
-    return f"{now.strftime('%y%m%d_%H%M')}_SurveyNo_{survey_no:02d}"
-
-# ----- Save to CSV & JSON -----
+# --- Download Button (CSV + GeoJSON) ---
 if submit:
     if st_map and st_map["last_active_drawing"]:
-        route_geojson = st_map["last_active_drawing"]["geometry"]
+        # Generate Survey ID
         timestamp = datetime.now()
-        survey_no = 1  # you can make this auto-increment if needed
-        survey_id = generate_survey_id(survey_no)
+        survey_id = timestamp.strftime("%y%m%d_%H%M_SurveyNo_01")
 
-        data = {
+        # Prepare CSV
+        csv_data = {
             "survey_id": survey_id,
             "timestamp": timestamp.isoformat(),
             "gender": gender,
@@ -54,24 +49,34 @@ if submit:
             "home_location": home_location,
             "trip_type": trip_type,
             "trip_month": trip_month,
-            "trip_frequency": trip_frequency,
-            "route_geojson": route_geojson
+            "trip_frequency": trip_frequency
         }
+        csv_df = pd.DataFrame([csv_data])
+        csv_bytes = csv_df.to_csv(index=False).encode("utf-8")
 
-        # Save CSV
-        csv_path = f"{survey_id}.csv"
-        df = pd.DataFrame([data])
-        df.to_csv(csv_path, index=False)
+        # Prepare GeoJSON
+        route_geometry = st_map["last_active_drawing"]["geometry"]
+        geojson_obj = {
+            "type": "FeatureCollection",
+            "features": [{
+                "type": "Feature",
+                "geometry": route_geometry,
+                "properties": {
+                    "survey_id": survey_id,
+                    "timestamp": timestamp.isoformat()
+                }
+            }]
+        }
+        geojson_bytes = json.dumps(geojson_obj, indent=2).encode("utf-8")
 
-        # Save JSON
-        json_path = f"{survey_id}.json"
-        with open(json_path, "w") as jf:
-            json.dump(data, jf, indent=2)
+        # --- Combined Download Button ---
+        st.success("✅ Files ready for download")
 
-        st.success(f"✅ Saved as {survey_id}.csv and .json")
+        col1, col2 = st.columns(2)
+        with col1:
+            st.download_button("📥 Download CSV", csv_bytes, file_name=f"{survey_id}.csv", mime="text/csv")
+        with col2:
+            st.download_button("🌍 Download GeoJSON", geojson_bytes, file_name=f"{survey_id}.geojson", mime="application/geo+json")
 
-        # Download buttons
-        st.download_button("📥 Download CSV", df.to_csv(index=False), file_name=csv_path, mime="text/csv")
-        st.download_button("📥 Download JSON", json.dumps(data, indent=2), file_name=json_path, mime="application/json")
     else:
         st.error("⚠️ Please draw a route on the map before submitting.")
