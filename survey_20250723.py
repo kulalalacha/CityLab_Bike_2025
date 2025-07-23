@@ -10,45 +10,68 @@ import os
 st.set_page_config(layout="wide")
 st.title("🚲 Bicycle OD Route Survey")
 
-# --- Create map ---
-m = folium.Map(location=[13.7563, 100.5018], zoom_start=12)  # Centered on Bangkok
+# ----- Create Map -----
+m = folium.Map(location=[13.7563, 100.5018], zoom_start=12)
 Draw(export=True, filename='drawn_route.geojson').add_to(m)
-
-# --- Show map and capture drawing ---
-st.subheader("🗺️ Draw your cycling route on the map below:")
+st.subheader("🗺️ Draw your recent trip on the map below:")
 st_map = st_folium(m, width=700, height=500, returned_objects=["last_active_drawing"])
 
-# --- Survey Form ---
+# ----- Survey Form -----
 with st.form("survey_form"):
-    st.subheader("📋 Trip Information")
-    trip_purpose = st.selectbox("What is the purpose of your trip?", ["Commute", "School", "Leisure", "Errand"])
-    frequency = st.selectbox("How often do you cycle this route?", ["Daily", "Weekly", "Occasionally"])
-    age = st.number_input("Your Age", min_value=10, max_value=100)
-    gender = st.selectbox("Gender", ["Male", "Female", "Other", "Prefer not to say"])
+    st.subheader("🧑 Demographic Info")
+    gender = st.radio("Gender", ["M", "F", "LGBTQ+"])
+    age = st.number_input("Age", min_value=10, max_value=100)
+    income = st.selectbox("Income Range", ["A: <10,000", "B: 10,001–30,000", "C: 30,001–50,000", "D: >50,000"])
+    home_location = st.text_input("Home Location")
+
+    st.subheader("🛣️ Recent Bicycle Trip")
+    trip_type = st.selectbox("Trip Type", ["Work", "Recreation", "School", "Errand"])
+    trip_month = st.selectbox("Trip Month", ["Jan", "Feb", "Mar", "Apr", "May", "Jun", 
+                                             "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"])
+    trip_frequency = st.text_input("Trip Frequency (e.g., 3x/week)")
+
     submit = st.form_submit_button("Submit")
 
-# --- Save to CSV ---
+# ----- Generate Unique Survey ID -----
+def generate_survey_id(survey_no):
+    now = datetime.now()
+    return f"{now.strftime('%y%m%d_%H%M')}_SurveyNo_{survey_no:02d}"
+
+# ----- Save to CSV & JSON -----
 if submit:
     if st_map and st_map["last_active_drawing"]:
-        timestamp = datetime.now().isoformat()
-        geojson_data = st_map["last_active_drawing"]["geometry"]
-        route_json = json.dumps(geojson_data)
+        route_geojson = st_map["last_active_drawing"]["geometry"]
+        timestamp = datetime.now()
+        survey_no = 1  # you can make this auto-increment if needed
+        survey_id = generate_survey_id(survey_no)
 
-        row = {
-            "timestamp": timestamp,
-            "trip_purpose": trip_purpose,
-            "frequency": frequency,
-            "age": age,
+        data = {
+            "survey_id": survey_id,
+            "timestamp": timestamp.isoformat(),
             "gender": gender,
-            "route_geojson": route_json
+            "age": age,
+            "income": income,
+            "home_location": home_location,
+            "trip_type": trip_type,
+            "trip_month": trip_month,
+            "trip_frequency": trip_frequency,
+            "route_geojson": route_geojson
         }
 
-        df = pd.DataFrame([row])
-        csv_file = "od_survey_data.csv"
-        file_exists = os.path.isfile(csv_file)
+        # Save CSV
+        csv_path = f"{survey_id}.csv"
+        df = pd.DataFrame([data])
+        df.to_csv(csv_path, index=False)
 
-        df.to_csv(csv_file, mode='a', header=not file_exists, index=False)
-        st.success("✅ Submission saved successfully!")
-        st.download_button("📥 Download CSV", df.to_csv(index=False), file_name="your_response.csv", mime="text/csv")
+        # Save JSON
+        json_path = f"{survey_id}.json"
+        with open(json_path, "w") as jf:
+            json.dump(data, jf, indent=2)
+
+        st.success(f"✅ Saved as {survey_id}.csv and .json")
+
+        # Download buttons
+        st.download_button("📥 Download CSV", df.to_csv(index=False), file_name=csv_path, mime="text/csv")
+        st.download_button("📥 Download JSON", json.dumps(data, indent=2), file_name=json_path, mime="application/json")
     else:
         st.error("⚠️ Please draw a route on the map before submitting.")
