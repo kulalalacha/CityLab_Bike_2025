@@ -11,7 +11,7 @@ import io
 st.set_page_config(layout="centered")
 st.title("🚲 Bicycle OD Route Survey")
 
-# ========== FORM ==========
+# ---------- FORM ----------
 with st.form("survey_form"):
     st.subheader("🧑 Demographics")
     gender = st.radio("Gender", ["M", "F", "LGBTQ+"])
@@ -27,27 +27,22 @@ with st.form("survey_form"):
 
     submit = st.form_submit_button("✅ Generate and Download All")
 
-# ========== MAP ==========
+# ---------- MAP ----------
 st.subheader("🗺️ Draw your route below:")
 
-# Setup base map
-start_coords = [13.730275905118468, 100.56987498465178]
-m = folium.Map(
-    location=start_coords,
-    zoom_start=16,
-    tiles="CartoDB positron",  # black-and-white basemap
-    control_scale=True
-)
+# Center coordinate
+lat, lon = 13.730275905118468, 100.56987498465178
+offset_deg = 0.0025  # ~278 meters
 
-# Add circle for radius
-folium.Circle(
-    radius=300,
-    location=start_coords,
-    color="#666",
-    fill=False
-).add_to(m)
+# Bounds for ~500m square
+sw = [lat - offset_deg, lon - offset_deg]  # Southwest corner
+ne = [lat + offset_deg, lon + offset_deg]  # Northeast corner
 
-# Add red draw tool
+# Initialize map
+m = folium.Map(tiles="CartoDB positron", control_scale=True)
+m.fit_bounds([sw, ne])  # Zoom to 500m extent
+
+# Red drawing tool only
 draw_options = {
     "polyline": {
         "shapeOptions": {
@@ -65,7 +60,7 @@ draw_options = {
 Draw(export=True, draw_options=draw_options).add_to(m)
 st_map = st_folium(m, width=700, height=500, returned_objects=["last_active_drawing"])
 
-# ========== HANDLE SUBMIT ==========
+# ---------- SUBMIT HANDLER ----------
 if submit:
     if st_map and st_map["last_active_drawing"]:
         timestamp = datetime.now()
@@ -108,15 +103,13 @@ if submit:
             zf.writestr(f"{survey_id}.geojson", geojson_bytes)
         zip_buffer.seek(0)
 
-        # DOWNLOAD
-        col1, col2 = st.columns([1, 6])
-        with col2:
-            st.success("✅ Your files are ready:")
-            st.download_button(
-                label="📦 Download All (CSV + GeoJSON)",
-                data=zip_buffer,
-                file_name=f"{survey_id}_files.zip",
-                mime="application/zip"
-            )
+        # 📦 Download
+        st.success("✅ Your files are ready:")
+        st.download_button(
+            label="📦 Download All (CSV + GeoJSON)",
+            data=zip_buffer,
+            file_name=f"{survey_id}_files.zip",
+            mime="application/zip"
+        )
     else:
         st.error("⚠️ Please draw your route before submitting.")
