@@ -34,7 +34,12 @@ with st.form("od_form", clear_on_submit=False):
     sw = [lat - offset_deg, lon - offset_deg]
     ne = [lat + offset_deg, lon + offset_deg]
 
-    m = folium.Map(tiles="CartoDB positron", control_scale=True)
+    m = folium.Map(
+    tiles="https://stamen-tiles.a.ssl.fastly.net/toner-lite/{z}/{x}/{y}.png",
+    attr='Map tiles by Stamen Design, OpenStreetMap',
+    control_scale=True
+    )
+
     m.fit_bounds([sw, ne])
     Draw(
         export=True,
