@@ -35,11 +35,10 @@ with st.form("od_form", clear_on_submit=False):
     ne = [lat + offset_deg, lon + offset_deg]
 
     m = folium.Map(
-    tiles="https://stamen-tiles.a.ssl.fastly.net/toner-lite/{z}/{x}/{y}.png",
-    attr='Map tiles by Stamen Design, OpenStreetMap',
+    tiles="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    attr='© OpenStreetMap contributors',
     control_scale=True
     )
-
     m.fit_bounds([sw, ne])
     Draw(
         export=True,
