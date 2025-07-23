@@ -36,7 +36,9 @@ with col2:
     Draw(export=True).add_to(m)
     st_map = st_folium(m, width=700, height=500, returned_objects=["last_active_drawing"])
 
-# ---- Process after Submit ----
+    map_container = st.container()
+
+# ⬇ Handle Submit Outside Columns to Avoid Stretch
 if submit:
     if st_map and st_map["last_active_drawing"]:
         timestamp = datetime.now()
@@ -79,12 +81,14 @@ if submit:
             zf.writestr(f"{survey_id}.geojson", geojson_bytes)
         zip_buffer.seek(0)
 
-        st.success("✅ Your files are ready:")
-        st.download_button(
-            label="📦 Download All (CSV + GeoJSON)",
-            data=zip_buffer,
-            file_name=f"{survey_id}_files.zip",
-            mime="application/zip"
-        )
+        # 🟢 Now use the map_container to render message and button in same visual space
+        with map_container:
+            st.success("✅ Your files are ready:")
+            st.download_button(
+                label="📦 Download All (CSV + GeoJSON)",
+                data=zip_buffer,
+                file_name=f"{survey_id}_files.zip",
+                mime="application/zip"
+            )
     else:
         st.error("⚠️ Please draw your route before submitting.")
