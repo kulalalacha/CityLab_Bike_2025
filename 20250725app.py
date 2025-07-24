@@ -7,9 +7,18 @@ import json
 from datetime import datetime
 import zipfile
 import io
+from pydrive2.auth import GoogleAuth
+from pydrive2.drive import GoogleDrive
+import os
 
 st.set_page_config(layout="centered")
 st.title("🚲 Bicycle OD Route Survey")
+
+# ---------- Google Drive Setup ----------
+gauth = GoogleAuth()
+gauth.LoadClientConfigFile("/etc/secrets/client_secrets.json")
+gauth.LoadCredentialsFile("/etc/secrets/token.json")
+drive = GoogleDrive(gauth)
 
 # ---------- FORM ----------
 with st.form("survey_form"):
@@ -28,36 +37,25 @@ with st.form("survey_form"):
     submit = st.form_submit_button("✅ Generate and Download All")
 
 # ---------- MAP ----------
-st.subheader("🗺️ Draw your route below:")
+st.subheader("🗌️ Draw your route below:")
 
-# Center coordinate
 lat, lon = 13.730275905118468, 100.56987498465178
-offset_deg = 0.01  # ~278 meters
+offset_deg = 0.01
+sw = [lat - offset_deg, lon - offset_deg]
+ne = [lat + offset_deg, lon + offset_deg]
 
-# Bounds for ~500m square
-sw = [lat - offset_deg, lon - offset_deg]  # Southwest corner
-ne = [lat + offset_deg, lon + offset_deg]  # Northeast corner
-
-# Initialize map
 m = folium.Map(tiles="CartoDB positron", control_scale=True)
-m.fit_bounds([sw, ne])  # Zoom to 500m extent
+m.fit_bounds([sw, ne])
 
-# Red drawing tool only
-draw_options = {
-    "polyline": {
-        "shapeOptions": {
-            "color": "red",
-            "weight": 4,
-            "opacity": 0.9
-        }
-    },
+Draw(export=True, draw_options={
+    "polyline": {"shapeOptions": {"color": "red", "weight": 4, "opacity": 0.9}},
     "polygon": False,
     "rectangle": False,
     "circle": False,
     "marker": False,
     "circlemarker": False
-}
-Draw(export=True, draw_options=draw_options).add_to(m)
+}).add_to(m)
+
 st_map = st_folium(m, width=700, height=500, returned_objects=["last_active_drawing"])
 
 # ---------- SUBMIT HANDLER ----------
@@ -111,5 +109,21 @@ if submit:
             file_name=f"{survey_id}_files.zip",
             mime="application/zip"
         )
+
+        # 🚀 Upload to Google Drive folder
+        folder_name = "2025_citilab_bike/Survey"
+
+        # Create ZIP file on disk (Render has ephemeral storage)
+        with open(f"/tmp/{survey_id}.zip", "wb") as f:
+            f.write(zip_buffer.getvalue())
+
+        gfile = drive.CreateFile({
+            'title': f"{survey_id}.zip",
+            'parents': [{"kind": "drive#fileLink", "path": folder_name}]
+        })
+        gfile.SetContentFile(f"/tmp/{survey_id}.zip")
+        gfile.Upload()
+        st.success(f"✉ Uploaded to Google Drive: {folder_name}/{survey_id}.zip")
+
     else:
         st.error("⚠️ Please draw your route before submitting.")
