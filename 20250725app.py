@@ -17,22 +17,22 @@ st.set_page_config(layout="centered")
 st.title("🚲 Bicycle OD Route Survey")
 
 # ---------- Google Drive Setup ----------
-# Step 1: Copy token.json from symlink to real file
-secrets_token_path = "/etc/secrets/token.json"
-token_copy_path = "token.json"
-if os.path.islink(secrets_token_path) or True:  # Always copy for safety
-    shutil.copy(secrets_token_path, token_copy_path)
+# Step 1–2: Copy secrets
+shutil.copy("/etc/secrets/token.json", "token.json")
+shutil.copy("/etc/secrets/client_secrets.json", "client_secrets.json")
 
-# Step 2: Same for client_secrets.json
-secrets_client_path = "/etc/secrets/client_secrets.json"
-client_copy_path = "client_secrets.json"
-if os.path.islink(secrets_client_path) or True:
-    shutil.copy(secrets_client_path, client_copy_path)
-
-# Step 3: Auth
+# Step 3: Safe Auth (NO auto browser fallback!)
 gauth = GoogleAuth()
-gauth.LoadClientConfigFile(client_copy_path)
-gauth.LoadCredentialsFile(token_copy_path)
+gauth.LoadClientConfigFile("client_secrets.json")
+
+try:
+    gauth.LoadCredentialsFile("token.json")
+    if gauth.credentials.access_token_expired:
+        gauth.Refresh()
+except Exception as e:
+    st.error("🚫 Token expired or invalid. Please re-authenticate on your local machine.")
+    st.stop()
+
 drive = GoogleDrive(gauth)
 
 
@@ -57,7 +57,7 @@ with st.form("survey_form"):
 st.subheader("🗌️ Draw your route below:")
 
 lat, lon = 13.730275905118468, 100.56987498465178
-offset_deg = 0.01
+offset_deg = 0.1
 sw = [lat - offset_deg, lon - offset_deg]
 ne = [lat + offset_deg, lon + offset_deg]
 
