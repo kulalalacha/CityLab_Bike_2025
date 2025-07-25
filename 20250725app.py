@@ -7,18 +7,35 @@ import json
 from datetime import datetime
 import zipfile
 import io
+import shutil
+import os
 from pydrive2.auth import GoogleAuth
 from pydrive2.drive import GoogleDrive
-import os
+
 
 st.set_page_config(layout="centered")
 st.title("🚲 Bicycle OD Route Survey")
 
 # ---------- Google Drive Setup ----------
+# Step 1: Copy token.json from symlink to real file
+secrets_token_path = "/etc/secrets/token.json"
+token_copy_path = "token.json"
+if os.path.islink(secrets_token_path) or True:  # Always copy for safety
+    shutil.copy(secrets_token_path, token_copy_path)
+
+# Step 2: Same for client_secrets.json
+secrets_client_path = "/etc/secrets/client_secrets.json"
+client_copy_path = "client_secrets.json"
+if os.path.islink(secrets_client_path) or True:
+    shutil.copy(secrets_client_path, client_copy_path)
+
+# Step 3: Auth
 gauth = GoogleAuth()
-gauth.LoadClientConfigFile("/etc/secrets/client_secrets.json")
-gauth.LoadCredentialsFile("/etc/secrets/token.json")
+gauth.LoadClientConfigFile(client_copy_path)
+gauth.LoadCredentialsFile(token_copy_path)
 drive = GoogleDrive(gauth)
+
+
 
 # ---------- FORM ----------
 with st.form("survey_form"):
