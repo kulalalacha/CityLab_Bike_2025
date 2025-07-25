@@ -127,20 +127,26 @@ if submit:
             mime="application/zip"
         )
 
-        # 🚀 Upload to Google Drive folder
-        folder_name = "2025_citilab_bike/Survey"
+
 
         # Create ZIP file on disk (Render has ephemeral storage)
-        with open(f"/tmp/{survey_id}.zip", "wb") as f:
+        # 🔐 Replace with your actual folder ID
+        folder_id = "1QEM1hQUo5f8MsUKofEqcK67vmrirv5km"  # 👈 <== put your real folder ID here
+
+        # Save ZIP file to temp path
+        local_zip_path = f"/tmp/{survey_id}.zip"
+        with open(local_zip_path, "wb") as f:
             f.write(zip_buffer.getvalue())
 
+        # Upload to Google Drive
         gfile = drive.CreateFile({
             'title': f"{survey_id}.zip",
-            'parents': [{"kind": "drive#fileLink", "path": folder_name}]
+            'parents': [{"id": folder_id}]
         })
-        gfile.SetContentFile(f"/tmp/{survey_id}.zip")
+        gfile.SetContentFile(local_zip_path)
         gfile.Upload()
-        st.success(f"✉ Uploaded to Google Drive: {folder_name}/{survey_id}.zip")
+        st.success(f"📤 Uploaded to Google Drive folder ID: {folder_id}")
+
 
     else:
         st.error("⚠️ Please draw your route before submitting.")
